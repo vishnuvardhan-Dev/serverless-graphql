@@ -1,0 +1,181 @@
+service: graphql-serverless-architecture
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+
+plugins:
+  - serverless-dotenv-plugin
+
+custom:
+  ecsCluster: graphql-cluster
+  ecsService: graphql-service
+  ecrRepository: 339712726852.dkr.ecr.us-east-1.amazonaws.com/graphql:latest
+
+package:
+  individually: true
+  exclude:
+    - node_modules/**
+    - venv/**
+    - .git/**
+    - .vscode/**
+    - test/**
+    - README.md
+    - package-lock.json
+    - yarn.lock
+    - frontend/**
+
+functions:
+  graphqlHandler:
+    handler: backend/lambda-functions/graphqlHandler.handler
+    events:
+      - http:
+          path: graphql
+          method: post
+          cors: true
+    role: LambdaExecutionRole
+
+resources:
+  Resources:
+    LambdaExecutionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+          - arn:aws:iam::aws:policy/AmazonECS_FullAccess
+          - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess
+        Policies:
+          - PolicyName: SecretsManagerAccess
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - secretsmanager:GetSecretValue
+                  Resource: "arn:aws:secretsmanager:${self:provider.region}:339712726852:secret:${self:service}/${self:provider.stage}/*"
+
+    ECSCluster:
+      Type: AWS::ECS::Cluster
+      Properties:
+        ClusterName: ${self:custom.ecsCluster}
+
+    # ECRRepository:
+    #   Type: AWS::ECR::Repository
+    #   Properties:
+    #     RepositoryName: ${self:custom.ecrRepository}
+
+    ECSTaskDefinition:
+      Type: AWS::ECS::TaskDefinition
+      Properties:
+        Family: graphql-server-task
+        Cpu: "256"
+        Memory: "512"
+        NetworkMode: awsvpc
+        RequiresCompatibilities:
+          - FARGATE
+        ContainerDefinitions:
+          - Name: graphql-server
+            Image: ${self:custom.ecrRepository}
+            PortMappings:
+              - ContainerPort: 4000
+        ExecutionRoleArn: !Ref ECSTaskExecutionRole
+
+    ECSTaskExecutionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: ecs-tasks.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+    ECSService:
+      Type: AWS::ECS::Service
+      Properties:
+        ServiceName: ${self:custom.ecsService}
+        Cluster:
+          Ref: ECSCluster
+        TaskDefinition:
+          Ref: ECSTaskDefinition
+        DesiredCount: 1
+        LaunchType: FARGATE
+        NetworkConfiguration:
+          AwsvpcConfiguration:
+            AssignPublicIp: ENABLED
+            Subnets:
+              - subnet-0016e3d8dbb757c4b # Replace with your subnet ID
+
+    CloudWatchLogsGroup:
+      Type: AWS::Logs::LogGroup
+      Properties:
+        LogGroupName: /aws/lambda/${self:service}-${self:provider.stage}
+        RetentionInDays: 7
+
+    CloudWatchAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-${self:provider.stage}-errors
+        AlarmDescription: "Alert when errors occur"
+        MetricName: Errors
+        Namespace: AWS/Lambda
+        Statistic: Sum
+        Period: 60
+        EvaluationPeriods: 1
+        Threshold: 1
+        ComparisonOperator: GreaterThanOrEqualToThreshold
+        AlarmActions:
+          - arn:aws:sns:us-east-1:339712726852:alert # Replace with your SNS topic ARN
+
+    SecretsManager:
+      Type: AWS::SecretsManager::Secret
+      Properties:
+        Name: ${self:service}/${self:provider.stage}/secrets
+        Description: "Secrets for the GraphQL serverless architecture"
+
+    AutoScalingTarget:
+      Type: AWS::ApplicationAutoScaling::ScalableTarget
+      Properties:
+        MaxCapacity: 10
+        MinCapacity: 1
+        ResourceId: !Join
+          - "/"
+          - - service
+            - ${self:custom.ecsCluster}
+            - ${self:custom.ecsService}
+        ScalableDimension: ecs:service:DesiredCount
+        ServiceNamespace: ecs
+      DependsOn: ECSService
+
+    AutoScalingPolicy:
+      Type: AWS::ApplicationAutoScaling::ScalingPolicy
+      Properties:
+        PolicyName: ${self:service}-${self:provider.stage}-auto-scaling
+        PolicyType: TargetTrackingScaling
+        ScalingTargetId: !Ref AutoScalingTarget
+        TargetTrackingScalingPolicyConfiguration:
+          PredefinedMetricSpecification:
+            PredefinedMetricType: ECSServiceAverageCPUUtilization
+          TargetValue: 70
+      DependsOn: AutoScalingTarget
+
+  Outputs:
+    ECSClusterName:
+      Value: !Ref ECSCluster
+    ECSServiceName:
+      Value: !Ref ECSService
+    # ECRRepositoryUrl:
+    #   Value: !GetAtt ECRRepository.RepositoryUri

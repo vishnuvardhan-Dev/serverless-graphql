@@ -7,4 +7,3 @@ const server = new ApolloServer({
   resolvers,
 });
 
-exports.handler = server.createHandler();

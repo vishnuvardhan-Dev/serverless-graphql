@@ -81,7 +81,7 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: graphql-server
+          ECR_REPOSITORY: graphql
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend/graphql-server

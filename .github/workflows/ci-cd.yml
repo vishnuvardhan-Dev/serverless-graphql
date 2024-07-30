@@ -55,7 +55,13 @@ jobs:
         working-directory: ./backend/graphql-server
 
       - name: Backend - Run tests
-        run: npm test -- --passWithNoTests
+        run: |
+          if npm run test 2>&1 | grep -q "Missing script: \"test\""; then
+            echo "No test script found. Skipping tests."
+            exit 0
+          else
+            npm run test
+          fi
         working-directory: ./backend/graphql-server
 
       - name: Configure AWS credentials

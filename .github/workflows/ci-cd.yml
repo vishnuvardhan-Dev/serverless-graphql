@@ -89,14 +89,11 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend/graphql-server
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Debug and Deploy Backend with Serverless Framework
-        run: |
-          pwd
-          ls -la
-          npm install -g serverless
-          npm ci
-          serverless deploy --stage prod --verbose
-        working-directory: ./backend/graphql-server
+      - name: Deploy to AWS
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: npx serverless deploy --stage prod
 
       - name: Update S3 bucket policy
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'

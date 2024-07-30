@@ -171,11 +171,47 @@ resources:
             PredefinedMetricType: ECSServiceAverageCPUUtilization
           TargetValue: 70
       DependsOn: AutoScalingTarget
+    ReactAppBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: frontend-s3-react-${self:provider.stage}
+        WebsiteConfiguration:
+          IndexDocument: index.html
+          ErrorDocument: index.html
+        OwnershipControls:
+          Rules:
+            - ObjectOwnership: BucketOwnerPreferred
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+          BlockPublicPolicy: false
+          IgnorePublicAcls: false
+          RestrictPublicBuckets: false
 
-  Outputs:
-    ECSClusterName:
-      Value: !Ref ECSCluster
-    ECSServiceName:
-      Value: !Ref ECSService
-    # ECRRepositoryUrl:
-    #   Value: !GetAtt ECRRepository.RepositoryUri
+    ReactAppBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref ReactAppBucket
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Sid: PublicReadGetObject
+              Effect: Allow
+              Principal: "*"
+              Action:
+                - s3:GetObject
+              Resource: !Join
+                - ""
+                - - "arn:aws:s3:::"
+                  - !Ref ReactAppBucket
+                  - "/*"
+
+outputs:
+  ReactAppBucketName:
+    Value: !Ref ReactAppBucket
+    Export:
+      Name: ${self:service}-${self:provider.stage}-react-app-bucket
+
+  ReactAppBucketWebsiteURL:
+    Value: !GetAtt ReactAppBucket.WebsiteURL
+    Export:
+      Name: ${self:service}-${self:provider.stage}-react-app-url

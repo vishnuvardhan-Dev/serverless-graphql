@@ -25,6 +25,11 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: react-build
+          path: frontend/react-app/build
 
   backend-build-and-test:
     runs-on: ubuntu-latest
@@ -64,24 +69,43 @@ jobs:
 
       - name: Build, tag, and push GraphQL server image to Amazon ECR
         env:
-          ECR_REGISTRY: 339712726852.dkr.ecr.us-east-1.amazonaws.com
-          ECR_REPOSITORY: graphql
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: graphql-server
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend/graphql-server
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
-      - name: Deploy Frontend to S3
-        env:
-          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
-        run: |
-          aws s3 sync ./frontend/react-app/build/ s3://$AWS_S3_BUCKET --delete
 
       - name: Deploy Backend with Serverless Framework
         run: |
           npm install -g serverless
           npm install
           serverless deploy --stage prod
+
+      - name: Download React build artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: react-build
+          path: react-build
+
+      - name: Update S3 bucket policy
+        run: |
+          aws s3api put-bucket-policy --bucket frontend-s3-react --policy '{
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Sid": "PublicReadGetObject",
+                "Effect": "Allow",
+                "Principal": "*",
+                "Action": "s3:GetObject",
+                "Resource": "arn:aws:s3:::frontend-s3-react/*"
+              }
+            ]
+          }'
+
+      - name: Deploy Frontend to S3
+        run: |
+          aws s3 sync react-build/ s3://frontend-s3-react --delete
 
       - name: Update ECS service
         run: |

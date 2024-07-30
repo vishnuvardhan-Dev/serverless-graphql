@@ -88,7 +88,8 @@ jobs:
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend/graphql-server
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
+      - name: Install Serverless Plugins
+        run: npm install serverless-dotenv-plugin
       - name: serverless deploy
         uses: serverless/github-action@master
         with:

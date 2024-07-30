@@ -98,14 +98,15 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      - name: Update S3 bucket policy
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - name: Update S3 Bucket Policy
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           aws s3api put-bucket-policy --bucket frontend-s3-react --policy '{
             "Version": "2012-10-17",
             "Statement": [
               {
-                "Sid": "PublicReadGetObject",
                 "Effect": "Allow",
                 "Principal": "*",
                 "Action": "s3:GetObject",
@@ -113,7 +114,6 @@ jobs:
               }
             ]
           }'
-
       - name: Deploy Frontend to S3
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |

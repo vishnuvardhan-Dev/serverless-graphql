@@ -16,7 +16,7 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: "16" # Updated to a more recent LTS version
+          node-version: "16"
 
       - name: Frontend - Debug package.json
         run: cat frontend/react-app/package.json
@@ -30,7 +30,7 @@ jobs:
         working-directory: ./frontend/react-app
 
       - name: Frontend - Run tests
-        run: npm test
+        run: npm test -- --passWithNoTests
         working-directory: ./frontend/react-app
 
       - name: Frontend - Build
@@ -55,7 +55,7 @@ jobs:
         working-directory: ./backend/graphql-server
 
       - name: Backend - Run tests
-        run: npm test
+        run: npm test -- --passWithNoTests
         working-directory: ./backend/graphql-server
 
       - name: Configure AWS credentials

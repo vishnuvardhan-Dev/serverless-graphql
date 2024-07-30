@@ -16,7 +16,9 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: "16"
+          node-version: "18"
+      - name: Update npm
+        run: npm install -g npm@latest
 
       - name: Frontend - Debug package.json
         run: cat frontend/react-app/package.json
@@ -88,10 +90,9 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Deploy Backend with Serverless Framework
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           npm install -g serverless
-          npm install
+          npm ci
           serverless deploy --stage prod
         working-directory: ./backend/graphql-server
 

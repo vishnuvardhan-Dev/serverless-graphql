@@ -89,12 +89,23 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend/graphql-server
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Deploy Backend with Serverless Framework
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - name: Debug and Deploy Backend with Serverless Framework
         run: |
+          echo "Current working directory:"
+          pwd
+          echo "Directory structure:"
+          tree -L 3
+          echo "Searching for serverless.yml:"
+          find . -name "serverless.yml"
+          if [ -f "serverless.yml" ]; then
+            echo "serverless.yml found in current directory"
+            cat serverless.yml
+          else
+            echo "serverless.yml not found in current directory"
+          fi
           npm install -g serverless
-          npm install
-          serverless deploy --stage prod
+          npm ci
+          serverless deploy --stage prod --verbose
         working-directory: ./backend/graphql-server
 
       - name: Update S3 bucket policy

@@ -89,15 +89,13 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend/graphql-server
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Authenticate Serverless Framework
+      - name: serverless deploy
+        uses: serverless/github-action@master
+        with:
+          args: deploy
         env:
-          SERVERLESS_ACCESS_KEY: ${{ secrets.SERVERLESS_ACCESS_KEY }}
-        run: serverless config credentials --provider serverless --key $SERVERLESS_ACCESS_KEY
-
-      - name: Deploy with Serverless
-        env:
-          SERVERLESS_ACCESS_KEY: ${{ secrets.SERVERLESS_ACCESS_KEY }}
-        run: serverless deploy
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Update S3 bucket policy
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'

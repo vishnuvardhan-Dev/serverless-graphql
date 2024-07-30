@@ -90,9 +90,10 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Deploy Backend with Serverless Framework
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           npm install -g serverless
-          npm ci
+          npm install
           serverless deploy --stage prod
         working-directory: ./backend/graphql-server
 

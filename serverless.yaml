@@ -77,9 +77,9 @@ resources:
       Type: AWS::ElasticLoadBalancingV2::LoadBalancer
       Properties:
         Scheme: internet-facing
-        SecurityGroups: 
+        SecurityGroups:
           - !Ref ALBSecurityGroup
-        Subnets: 
+        Subnets:
           - subnet-0016e3d8dbb757c4b # Add more subnets as needed
         # Make sure these subnets are in the VPC you specified
 
@@ -92,7 +92,7 @@ resources:
           - IpProtocol: tcp
             FromPort: 80
             ToPort: 80
-            CidrIp: 0.0.0.0/0    
+            CidrIp: 0.0.0.0/0
 
     ALBListener:
       Type: AWS::ElasticLoadBalancingV2::Listener
@@ -114,15 +114,15 @@ resources:
         TargetType: ip
         VpcId: ${self:custom.vpcId} # Replace with your VPC ID
 
-    ALBSecurityGroup:
-      Type: AWS::EC2::SecurityGroup
-      Properties:
-        GroupDescription: Security group for ALB
-        SecurityGroupIngress:
-          - IpProtocol: tcp
-            FromPort: 80
-            ToPort: 80
-            CidrIp: 0.0.0.0/0
+    # ALBSecurityGroup:
+    #   Type: AWS::EC2::SecurityGroup
+    #   Properties:
+    #     GroupDescription: Security group for ALB
+    #     SecurityGroupIngress:
+    #       - IpProtocol: tcp
+    #         FromPort: 80
+    #         ToPort: 80
+    #         CidrIp: 0.0.0.0/0
     ECSTaskDefinition:
       Type: AWS::ECS::TaskDefinition
       Properties:
@@ -168,7 +168,7 @@ resources:
             Subnets:
               - subnet-0016e3d8dbb757c4b
             SecurityGroups:
-                  - !Ref ECSSecurityGroup
+              - !Ref ECSSecurityGroup
     ECSSecurityGroup:
       Type: AWS::EC2::SecurityGroup
       Properties:
@@ -178,7 +178,7 @@ resources:
           - IpProtocol: tcp
             FromPort: 4000
             ToPort: 4000
-            SourceSecurityGroupId: !Ref ALBSecurityGroup                  
+            SourceSecurityGroupId: !Ref ALBSecurityGroup
     CloudWatchLogsGroup:
       Type: AWS::Logs::LogGroup
       Properties:

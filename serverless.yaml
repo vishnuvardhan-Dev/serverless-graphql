@@ -80,7 +80,8 @@ resources:
         SecurityGroups:
           - !Ref ALBSecurityGroup
         Subnets:
-          - subnet-0016e3d8dbb757c4b # Add more subnets as needed
+          - subnet-0016e3d8dbb757c4b
+          - subnet-0fc1915267cc9dd4c # Add more subnets as needed
         # Make sure these subnets are in the VPC you specified
 
     ALBSecurityGroup:

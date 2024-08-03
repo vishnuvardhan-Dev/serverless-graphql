@@ -117,7 +117,7 @@ resources:
           AwsvpcConfiguration:
             AssignPublicIp: ENABLED
             Subnets:
-              - subnet-0016e3d8dbb757c4b # Replace with your subnet ID
+              - subnet-0016e3d8dbb757c4b
 
     CloudWatchLogsGroup:
       Type: AWS::Logs::LogGroup

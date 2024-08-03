@@ -13,7 +13,7 @@ custom:
   ecsCluster: graphql-cluster
   ecsService: graphql-service
   ecrRepository: 339712726852.dkr.ecr.us-east-1.amazonaws.com/graphql:latest
-
+  vpcId: vpc-022b1b302db9ca7cc
 package:
   individually: true
   exclude:
@@ -77,10 +77,22 @@ resources:
       Type: AWS::ElasticLoadBalancingV2::LoadBalancer
       Properties:
         Scheme: internet-facing
-        SecurityGroups:
+        SecurityGroups: 
           - !Ref ALBSecurityGroup
-        Subnets:
+        Subnets: 
           - subnet-0016e3d8dbb757c4b # Add more subnets as needed
+        # Make sure these subnets are in the VPC you specified
+
+    ALBSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: Security group for ALB
+        VpcId: ${self:custom.vpcId}
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 80
+            ToPort: 80
+            CidrIp: 0.0.0.0/0    
 
     ALBListener:
       Type: AWS::ElasticLoadBalancingV2::Listener
@@ -100,7 +112,7 @@ resources:
         Port: 4000
         Protocol: HTTP
         TargetType: ip
-        VpcId: vpc-022b1b302db9ca7cc # Replace with your VPC ID
+        VpcId: ${self:custom.vpcId} # Replace with your VPC ID
 
     ALBSecurityGroup:
       Type: AWS::EC2::SecurityGroup
@@ -155,10 +167,18 @@ resources:
             AssignPublicIp: ENABLED
             Subnets:
               - subnet-0016e3d8dbb757c4b
-        LoadBalancers:
-          - ContainerName: graphql-server
-            ContainerPort: 4000
-            TargetGroupArn: !Ref ALBTargetGroup
+            SecurityGroups:
+                  - !Ref ECSSecurityGroup
+    ECSSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: Security group for ECS tasks
+        VpcId: ${self:custom.vpcId}
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 4000
+            ToPort: 4000
+            SourceSecurityGroupId: !Ref ALBSecurityGroup                  
     CloudWatchLogsGroup:
       Type: AWS::Logs::LogGroup
       Properties:

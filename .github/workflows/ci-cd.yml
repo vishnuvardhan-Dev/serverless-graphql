@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  build-test-deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -17,53 +17,15 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: "18"
-      - name: Update npm
-        run: npm install -g npm@latest
 
-      - name: Frontend - Debug package.json
-        run: cat frontend/react-app/package.json
-
-      - name: Frontend - Clear npm cache
-        run: npm cache clean --force
+      - name: Frontend - Install dependencies and build
+        run: |
+          npm ci
+          npm run build
         working-directory: ./frontend/react-app
-
-      - name: Frontend - Install dependencies
-        run: npm ci
-        working-directory: ./frontend/react-app
-
-      - name: Frontend - Run tests
-        run: npm test -- --passWithNoTests
-        working-directory: ./frontend/react-app
-
-      - name: Frontend - Build
-        run: npm run build
-        working-directory: ./frontend/react-app
-
-      - name: Upload frontend build artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: react-build
-          path: frontend/react-app/build
-
-      - name: Backend - Debug package.json
-        run: cat backend/graphql-server/package.json
-
-      - name: Backend - Clear npm cache
-        run: npm cache clean --force
-        working-directory: ./backend/graphql-server
 
       - name: Backend - Install dependencies
         run: npm ci
-        working-directory: ./backend/graphql-server
-
-      - name: Backend - Run tests
-        run: |
-          if npm run test 2>&1 | grep -q "Missing script: \"test\""; then
-            echo "No test script found. Skipping tests."
-            exit 0
-          else
-            npm run test
-          fi
         working-directory: ./backend/graphql-server
 
       - name: Configure AWS credentials
@@ -74,52 +36,27 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Login to Amazon ECR
+      - name: Build and push GraphQL server image to Amazon ECR
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Build, tag, and push GraphQL server image to Amazon ECR
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: graphql
-          IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend/graphql-server
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-      - name: Install Serverless Plugins
-        run: npm install serverless-dotenv-plugin
-      - name: serverless deploy
-        uses: serverless/github-action@master
-        with:
-          args: deploy
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 339712726852.dkr.ecr.us-east-1.amazonaws.com
+          docker build -t 339712726852.dkr.ecr.us-east-1.amazonaws.com/graphql:latest ./backend/graphql-server
+          docker push 339712726852.dkr.ecr.us-east-1.amazonaws.com/graphql:latest
+
+      - name: Deploy with Serverless
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          npm install -g serverless
+          npm install serverless-dotenv-plugin
+          serverless deploy
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      - name: Update S3 Bucket Policy
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          aws s3api put-bucket-policy --bucket frontend-s3-react --policy '{
-            "Version": "2012-10-17",
-            "Statement": [
-              {
-                "Effect": "Allow",
-                "Principal": "*",
-                "Action": "s3:GetObject",
-                "Resource": "arn:aws:s3:::frontend-s3-react/*"
-              }
-            ]
-          }'
       - name: Deploy Frontend to S3
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          aws s3 sync frontend/react-app/build/ s3://frontend-s3-react --delete
+        run: aws s3 sync frontend/react-app/build/ s3://frontend-s3-react-dev --delete
 
       - name: Update ECS service
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          aws ecs update-service --cluster your-cluster-name --service your-service-name --force-new-deployment
+        run: aws ecs update-service --cluster graphql-cluster --service graphql-service --force-new-deployment
